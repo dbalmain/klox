@@ -47,3 +47,10 @@ tasks.named<Test>("test") {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
 }
+
+tasks.withType<JavaExec> {
+    if (name == "run") {
+        workingDir = projectDir // Or rootDir if you preferred that
+        standardInput = System.`in` // Explicitly connect standard input
+    }
+}
