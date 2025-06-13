@@ -5,11 +5,11 @@ EXPRESSION_TYPES = [
   "Assign   : Token name, Expr value", # We'll add this later, but good to have a multi-field example
   "Binary   : Expr left, Token operator, Expr right",
   "Call     : Expr callee, Token paren, List<Expr> arguments", # Added from later chapters, but good for testing
-  "Get      : Expr object, Token name", # Added from later chapters
+  "Get      : Expr objectExpr, Token name", # Added from later chapters
   "Grouping : Expr expression",
   "Literal  : Any? value", # Any? for Kotlin's nullable Object equivalent
   "Logical  : Expr left, Token operator, Expr right", # Added from later chapters
-  "Set      : Expr object, Token name, Expr value", # Added from later chapters
+  "Set      : Expr objectExpr, Token name, Expr value", # Added from later chapters
   "Super    : Token keyword, Token method", # Added from later chapters
   "This     : Token keyword", # Added from later chapters
   "Unary    : Token operator, Expr right",
@@ -54,7 +54,7 @@ def define_visitor(file, expression_types)
   file.puts "    interface Visitor<R> {"
   expression_types.each do |type_def|
     class_name = type_def.split(':').first.strip
-    file.puts "        fun visit#{class_name}Expr(expr: #{class_name}): R"
+    file.puts "        fun visit(expr: #{class_name}): R"
   end
   file.puts "    }"
   file.puts
@@ -74,9 +74,7 @@ def define_type(file, class_name, fields_str)
   end
   file.puts "        " + fields.join(",\n        ") unless fields.empty?
   file.puts "    ) : Expr() {"
-  file.puts "        override fun <R> accept(visitor: Visitor<R>): R {"
-  file.puts "            return visitor.visit#{class_name}Expr(this)"
-  file.puts "        }"
+  file.puts "        override fun <R> accept(visitor: Visitor<R>): R = visitor.visit(this)"
   file.puts "    }"
   file.puts
 end
