@@ -7,16 +7,20 @@ import kotlin.system.exitProcess
 
 object Klox {
     private var hadError = false // Add this flag
+    private var hadRuntimeError = false // New flag
+
+    private val interpreter = Interpreter() // Create an interpreter instance
 
     @JvmStatic
     fun main(args: Array<String>) {
         println("Klox (Kotlin) Interpreter") // A friendlier greeting
         if (args.size > 1) {
-            println("Usage: kloxkt [script]")
+            println("Usage: klox [script]")
             exitProcess(64)
         } else if (args.size == 1) {
             runFile(args[0])
             if (hadError) exitProcess(65) // Check error after running file
+            if (hadRuntimeError) exitProcess(70) // Exit code for runtime errors
         } else {
             runPrompt()
         }
@@ -54,12 +58,8 @@ object Klox {
         // Stop if there was a syntax error.
         if (hadError) return
 
-        // For now, just print the AST using our AstPrinter
-        if (expression != null) {
-            println("AST:")
-            println(AstPrinter().print(expression))
-        } else {
-            println("AST: null (parsing error)")
+        if (expression != null) { // Check if parsing succeeded
+            interpreter.interpret(expression) // Use the interpreter
         }
     }
 
@@ -73,6 +73,12 @@ object Klox {
         } else {
             report(token.line, " at '${token.lexeme}'", message)
         }
+    }
+
+    // New method for runtime errors
+    fun runtimeError(error: RuntimeError) {
+        System.err.println("${error.message}\n[line ${error.token.line}]")
+        hadRuntimeError = true
     }
 
     private fun report(line: Int, where: String, message: String) {
