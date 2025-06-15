@@ -53,14 +53,12 @@ object Klox {
         val scanner = Scanner(source)
         val tokens = scanner.scanTokens()
         val parser = Parser(tokens)
-        val expression = parser.parse()
+        val statements = parser.parse()
 
         // Stop if there was a syntax error.
         if (hadError) return
 
-        if (expression != null) { // Check if parsing succeeded
-            interpreter.interpret(expression) // Use the interpreter
-        }
+        interpreter.interpret(statements) // Use the interpreter
     }
 
     // Error reporting functions

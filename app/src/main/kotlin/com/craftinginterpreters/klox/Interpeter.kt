@@ -4,25 +4,76 @@ package com.craftinginterpreters.klox
 // Custom exception for runtime errors
 class RuntimeError(val token: Token, override val message: String) : RuntimeException(message)
 
-class Interpreter : Expr.Visitor<Any?> {
+class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
+    private var environment = Environment() // The current environment
 
-    fun interpret(expression: Expr?) {
+    fun interpret(statements: List<Stmt?>) {
         try {
-            val value = evaluate(expression)
-            println(stringify(value))
+            for (statement in statements) {
+                if (statement != null) execute(statement)
+            }
         } catch (error: RuntimeError) {
             Klox.runtimeError(error) // Delegate to Klox for reporting
+        }
+    }
+
+    private fun execute(stmt: Stmt) {
+        stmt.accept(this)
+    }
+
+    // For executing blocks in a new scope
+    fun executeBlock(statements: List<Stmt?>, blockEnvironment: Environment) {
+        val previous = this.environment
+        try {
+            this.environment = blockEnvironment
+            for (statement in statements) {
+                if (statement != null) execute(statement)
+            }
+        } finally {
+            this.environment = previous // Restore previous environment
         }
     }
 
     private fun evaluate(expr: Expr?): Any? {
         return expr?.accept(this)
     }
+    // --- Stmt.Visitor methods ---
+    override fun visit(stmt: Stmt.Block) {
+        executeBlock(stmt.statements, Environment(environment)) // New environment for the block
+    }
 
+    override fun visit(stmt: Stmt.Expression) {
+        evaluate(stmt.expression) // Evaluate and discard
+    }
+
+    override fun visit(stmt: Stmt.If) {
+        /* For Chapter 9 */
+    }
+    // override fun visit(stmt: Stmt.Class) { /* For Chapter 12 */ }
+    // override fun visit(stmt: Stmt.Function) { /* For Chapter 10 */ }
+    // override fun visit(stmt: Stmt.Return) { /* For Chapter 10 */ }
+    override fun visit(stmt: Stmt.While) {
+        /* For Chapter 9 */
+    }
+
+    override fun visit(stmt: Stmt.Print) {
+        val value = evaluate(stmt.expression)
+        println(stringify(value))
+    }
+
+    override fun visit(stmt: Stmt.Var) {
+        var value: Any? = null
+        if (stmt.initializer != null) {
+            value = evaluate(stmt.initializer)
+        }
+        environment.define(stmt.name.lexeme, value)
+    }
+
+    // --- Expr.Visitor methods ---
     override fun visit(expr: Expr.Assign): Any? {
-        // We'll implement this in a later chapter (Chapter 8)
-        Klox.runtimeError(RuntimeError(expr.name, "Assignment not yet implemented."))
-        return null
+        val value = evaluate(expr.value)
+        environment.assign(expr.name, value)
+        return value
     }
 
     override fun visit(expr: Expr.Binary): Any? {
@@ -132,9 +183,7 @@ class Interpreter : Expr.Visitor<Any?> {
     }
 
     override fun visit(expr: Expr.Variable): Any? {
-        // We'll implement this in a later chapter (Chapter 8)
-        Klox.runtimeError(RuntimeError(expr.name, "Variables not yet implemented."))
-        return null
+        return environment.get(expr.name)
     }
 
     // --- Helper methods for type checking and truthiness ---

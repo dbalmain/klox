@@ -7,17 +7,91 @@ class Parser(private val tokens: List<Token>) {
 
     private var current = 0 // Current token we're looking at
 
-    fun parse(): Expr? {
-        return try {
-            expression()
-        } catch (error: ParseError) {
-            null // Return null if there was a syntax error
+    fun parse(): List<Stmt?> {
+        val statements = mutableListOf<Stmt?>()
+        while (!isAtEnd()) {
+            statements.add(declaration()) // Start with declaration rule
         }
+        return statements
     }
 
     // expression     → equality ;
     private fun expression(): Expr {
-        return equality() // Start with the lowest precedence
+        return assignment() // Start with the lowest precedence
+    }
+
+    // declaration    → varDecl | statement ;
+    private fun declaration(): Stmt? {
+        return try {
+            if (match(TokenType.VAR)) varDeclaration() else statement()
+        } catch (error: ParseError) {
+            synchronize() // Attempt to recover
+            null
+        }
+    }
+
+    // statement      → exprStmt | printStmt | block ;
+    private fun statement(): Stmt {
+        if (match(TokenType.PRINT)) return printStatement()
+        if (match(TokenType.LEFT_BRACE)) return Stmt.Block(block().filterNotNull())
+        // ... add ifStatement, whileStatement, forStatement later
+        return expressionStatement()
+    }
+
+    // block          → "{" declaration* "}" ;
+    private fun block(): List<Stmt?> {
+        val statements = mutableListOf<Stmt?>()
+        while (!check(TokenType.RIGHT_BRACE) && !isAtEnd()) {
+            statements.add(declaration())
+        }
+        consume(TokenType.RIGHT_BRACE, "Expect '}' after block.")
+        return statements
+    }
+
+    // varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
+    private fun varDeclaration(): Stmt {
+        val name = consume(TokenType.IDENTIFIER, "Expect variable name.")
+        var initializer: Expr? = null
+        if (match(TokenType.EQUAL)) {
+            initializer = expression()
+        }
+        consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.")
+        return Stmt.Var(name, initializer)
+    }
+
+    private fun printStatement(): Stmt {
+        val value = expression()
+        consume(TokenType.SEMICOLON, "Expect ';' after value.")
+        return Stmt.Print(value)
+    }
+
+    private fun expressionStatement(): Stmt {
+        val expr = expression()
+        consume(TokenType.SEMICOLON, "Expect ';' after expression.")
+        return Stmt.Expression(expr)
+    }
+
+    // --- Expression parsing methods (from Chapter 6, with 'assignment' as new entry point) ---
+    // assignment     → IDENTIFIER "=" assignment | equality ; (equality was term for Ch6)
+    private fun assignment(): Expr {
+        val expr = equality() // Or 'or()' when logical operators are added
+
+        if (match(TokenType.EQUAL)) {
+            val equals = previous()
+            val value = assignment() // Right-associative
+
+            if (expr is Expr.Variable) {
+                val name = expr.name
+                return Expr.Assign(name, value)
+            }
+            // else if (expr is Expr.Get) { ... for properties ... }
+
+            error(
+                    equals,
+                    "Invalid assignment target."
+            ) // Report error but don't throw ParseError from here
+        }
+        return expr
     }
 
     // equality       → comparison ( ( "!=" | "==" ) comparison )* ;
@@ -94,9 +168,9 @@ class Parser(private val tokens: List<Token>) {
             return Expr.Literal(previous().literal)
         }
 
-        // For Chapter 6, we don't have variables yet, so IDENTIFIER would be an error.
-        // We'll add variable handling later. For now, an unexpected IDENTIFIER would fall through
-        // to the error at the end of this function if not handled by grouping.
+        if (match(TokenType.IDENTIFIER)) {
+            return Expr.Variable(previous())
+        }
 
         if (match(TokenType.LEFT_PAREN)) {
             val expr = expression()
@@ -151,17 +225,24 @@ class Parser(private val tokens: List<Token>) {
         return ParseError() // Throw custom exception to unwind
     }
 
-    // For Chapter 6, synchronize is not yet implemented, but it's good to have the placeholder
-    // private fun synchronize() {
-    //     advance()
-    //     while (!isAtEnd()) {
-    //         if (previous().type == TokenType.SEMICOLON) return
-    //         when (peek().type) {
-    //             TokenType.CLASS, TokenType.FUN, TokenType.VAR, TokenType.FOR,
-    //             TokenType.IF, TokenType.WHILE, TokenType.PRINT, TokenType.RETURN -> return
-    //             else -> { /* Do nothing. */ }
-    //         }
-    //         advance()
-    //     }
-    // }
+    private fun synchronize() {
+        advance()
+        while (!isAtEnd()) {
+            if (previous().type == TokenType.SEMICOLON) return
+            when (peek().type) {
+                TokenType.CLASS,
+                TokenType.FUN,
+                TokenType.VAR,
+                TokenType.FOR,
+                TokenType.IF,
+                TokenType.WHILE,
+                TokenType.PRINT,
+                TokenType.RETURN -> return
+                else -> {
+                    /* Do nothing. */
+                }
+            }
+            advance()
+        }
+    }
 }
