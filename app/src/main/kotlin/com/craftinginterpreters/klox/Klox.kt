@@ -52,6 +52,7 @@ object Klox {
     private fun run(source: String) {
         val scanner = Scanner(source)
         val tokens = scanner.scanTokens()
+
         val parser = Parser(tokens)
         val statements = parser.parse()
 

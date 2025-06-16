@@ -47,13 +47,19 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
     }
 
     override fun visit(stmt: Stmt.If) {
-        /* For Chapter 9 */
+        if (isTruthy(evaluate(stmt.condition))) {
+            execute(stmt.thenBranch)
+        } else if (stmt.elseBranch != null) {
+            execute(stmt.elseBranch)
+        }
     }
     // override fun visit(stmt: Stmt.Class) { /* For Chapter 12 */ }
     // override fun visit(stmt: Stmt.Function) { /* For Chapter 10 */ }
     // override fun visit(stmt: Stmt.Return) { /* For Chapter 10 */ }
     override fun visit(stmt: Stmt.While) {
-        /* For Chapter 9 */
+        while (isTruthy(evaluate(stmt.condition))) {
+            execute(stmt.body)
+        }
     }
 
     override fun visit(stmt: Stmt.Print) {
@@ -148,9 +154,14 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
     }
 
     override fun visit(expr: Expr.Logical): Any? {
-        // We'll implement this in a later chapter (Chapter 9)
-        Klox.runtimeError(RuntimeError(expr.operator, "Logical operators not yet implemented."))
-        return null
+        val left = evaluate(expr.left)
+
+        if (expr.operator.type == TokenType.OR) {
+            if (isTruthy(left)) return left // Short-circuit
+        } else { // AND
+            if (!isTruthy(left)) return left // Short-circuit
+        }
+        return evaluate(expr.right)
     }
 
     override fun visit(expr: Expr.Set): Any? {
