@@ -13,17 +13,18 @@ EXPRESSION_TYPES = [
   "Super    : Token keyword, Token method", # Added from later chapters
   "This     : Token keyword", # Added from later chapters
   "Unary    : Token operator, Expr right",
-  "Variable : Token name"
+  "Variable : Token name",
 ]
 
 STATEMENT_TYPES = [
   "Block      : List<Stmt> statements",
   "Expression : Expr expression",
-  "If         : Expr condition, Stmt thenBranch, Stmt? elseBranch", # From Ch 9, but good to have
+  "Function   : Token name, List<Token> params, List<Stmt> body",
+  "If         : Expr condition, Stmt thenBranch, Stmt? elseBranch",
   "Print      : Expr expression",
+  "Return     : Token keyword, Expr? value",
   "Var        : Token name, Expr? initializer",
-  "While      : Expr condition, Stmt body" # From Ch 9
-  # We'll add Function and Return later
+  "While      : Expr condition, Stmt body",
 ]
 
 # Target Kotlin package and output file

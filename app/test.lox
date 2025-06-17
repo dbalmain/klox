@@ -9,3 +9,48 @@ for (var x = 1; x <= 5; x = x + 1) {
     sum = sum + x;
 }
 print sum; // Should print 15
+
+fun sayHi(name) {
+  print "Hi, " + name + "!";
+}
+sayHi("Klox User");
+
+fun fib(n) {
+  if (n < 2) return n;
+  return fib(n - 2) + fib(n - 1);
+}
+print fib(7); // Should print 13
+
+fun makeCounter() {
+  var i = 0;
+  fun count() {
+    i = i + 1;
+    print i;
+  }
+  return count;
+}
+var counter = makeCounter();
+counter(); // 1
+counter(); // 2
+
+fun testReturn(x) {
+  if (x > 5) {
+    print "Returning early";
+    return x * 10;
+  }
+  print "Continuing";
+  return x;
+}
+print testReturn(3);
+print testReturn(7);
+
+print clock();
+print clock();
+
+fun hh(n) {
+  fun middle(b) {
+    return n * b;
+  }
+  return middle;
+}
+print hh(5)(3);

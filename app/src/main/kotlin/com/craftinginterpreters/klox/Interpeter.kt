@@ -5,7 +5,23 @@ package com.craftinginterpreters.klox
 class RuntimeError(val token: Token, override val message: String) : RuntimeException(message)
 
 class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
-    private var environment = Environment() // The current environment
+    val globals = Environment()
+    private var environment = globals
+    class Return(val value: Any?) : RuntimeException(null, null, false, false)
+
+    init {
+        // Define native clock() function
+        globals.define(
+                "clock",
+                object : LoxCallable {
+                    override fun arity(): Int = 0
+                    override fun call(interpreter: Interpreter, arguments: List<Any?>): Any? {
+                        return System.currentTimeMillis() / 1000.0
+                    }
+                    override fun toString(): String = "<native fn>"
+                }
+        )
+    }
 
     fun interpret(statements: List<Stmt?>) {
         try {
@@ -42,6 +58,16 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
         executeBlock(stmt.statements, Environment(environment)) // New environment for the block
     }
 
+    override fun visit(stmt: Stmt.Function) {
+        val function = LoxFunction(stmt, environment) // Capture current environment as closure
+        environment.define(stmt.name.lexeme, function)
+    }
+
+    override fun visit(stmt: Stmt.Return) {
+        val value = if (stmt.value != null) evaluate(stmt.value) else null
+        throw Return(value) // Throw custom exception to unwind call stack
+    }
+
     override fun visit(stmt: Stmt.Expression) {
         evaluate(stmt.expression) // Evaluate and discard
     }
@@ -53,8 +79,8 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
             execute(stmt.elseBranch)
         }
     }
+
     // override fun visit(stmt: Stmt.Class) { /* For Chapter 12 */ }
-    // override fun visit(stmt: Stmt.Function) { /* For Chapter 10 */ }
     // override fun visit(stmt: Stmt.Return) { /* For Chapter 10 */ }
     override fun visit(stmt: Stmt.While) {
         while (isTruthy(evaluate(stmt.condition))) {
@@ -134,9 +160,25 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
     }
 
     override fun visit(expr: Expr.Call): Any? {
-        // We'll implement this in a later chapter (Chapter 10)
-        Klox.runtimeError(RuntimeError(expr.paren, "Function calls not yet implemented."))
-        return null
+        val callee = evaluate(expr.callee)
+        val arguments = mutableListOf<Any?>()
+        for (argument in expr.arguments) {
+            arguments.add(evaluate(argument))
+        }
+
+        if (callee !is LoxCallable) {
+            throw RuntimeError(expr.paren, "Can only call functions and classes.")
+        }
+
+        val function = callee // Already checked it's LoxCallable
+        if (arguments.size != function.arity()) {
+            throw RuntimeError(
+                    expr.paren,
+                    "Expected ${function.arity()} arguments but got ${arguments.size}."
+            )
+        }
+
+        return function.call(this, arguments)
     }
 
     override fun visit(expr: Expr.Get): Any? {

@@ -5,8 +5,10 @@ sealed class Stmt {
     interface Visitor<R> {
         fun visit(stmt: Block): R
         fun visit(stmt: Expression): R
+        fun visit(stmt: Function): R
         fun visit(stmt: If): R
         fun visit(stmt: Print): R
+        fun visit(stmt: Return): R
         fun visit(stmt: Var): R
         fun visit(stmt: While): R
     }
@@ -25,6 +27,14 @@ sealed class Stmt {
         override fun <R> accept(visitor: Visitor<R>): R = visitor.visit(this)
     }
 
+    data class Function(
+        val name: Token,
+        val params: List<Token>,
+        val body: List<Stmt>
+    ) : Stmt() {
+        override fun <R> accept(visitor: Visitor<R>): R = visitor.visit(this)
+    }
+
     data class If(
         val condition: Expr,
         val thenBranch: Stmt,
@@ -35,6 +45,13 @@ sealed class Stmt {
 
     data class Print(
         val expression: Expr
+    ) : Stmt() {
+        override fun <R> accept(visitor: Visitor<R>): R = visitor.visit(this)
+    }
+
+    data class Return(
+        val keyword: Token,
+        val value: Expr?
     ) : Stmt() {
         override fun <R> accept(visitor: Visitor<R>): R = visitor.visit(this)
     }

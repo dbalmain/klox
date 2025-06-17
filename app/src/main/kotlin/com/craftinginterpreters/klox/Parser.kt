@@ -20,10 +20,11 @@ class Parser(private val tokens: List<Token>) {
         return assignment() // Start with the lowest precedence
     }
 
-    // declaration    → varDecl | statement ;
+    // declaration    → funDecl | varDecl | statement ;
     private fun declaration(): Stmt? {
         return try {
-            if (match(TokenType.VAR)) varDeclaration() else statement()
+            if (match(TokenType.FUN)) funDeclaration("function") // Pass kind
+            else if (match(TokenType.VAR)) varDeclaration() else statement()
         } catch (error: ParseError) {
             synchronize() // Attempt to recover
             null
@@ -37,8 +38,46 @@ class Parser(private val tokens: List<Token>) {
         if (match(TokenType.PRINT)) return printStatement()
         if (match(TokenType.WHILE)) return whileStatement()
         if (match(TokenType.LEFT_BRACE)) return Stmt.Block(block().filterNotNull())
-        // ... add returnStatement later
+        if (match(TokenType.RETURN)) return returnStatement()
         return expressionStatement()
+    }
+
+    private fun funDeclaration(kind: String): Stmt.Function {
+        val name = consume(TokenType.IDENTIFIER, "Expect $kind name.")
+        return function(kind, name) // Pass token for name
+    }
+
+    // Helper for parsing function parameters and body (reused for methods)
+    // Changed to take name Token directly
+    private fun function(kind: String, name: Token): Stmt.Function {
+        consume(TokenType.LEFT_PAREN, "Expect '(' after $kind name.")
+        val parameters = mutableListOf<Token>()
+        if (!check(TokenType.RIGHT_PAREN)) {
+            do {
+                if (parameters.size >= 255) {
+                    error(peek(), "Can't have more than 255 parameters.")
+                }
+                parameters.add(consume(TokenType.IDENTIFIER, "Expect parameter name."))
+            } while (match(TokenType.COMMA))
+        }
+        consume(TokenType.RIGHT_PAREN, "Expect ')' after parameters.")
+        consume(TokenType.LEFT_BRACE, "Expect '{' before $kind body.")
+        val body = block() // block() returns List<Stmt?>
+        return Stmt.Function(
+                name,
+                parameters,
+                body.filterNotNull()
+        ) // Filter out nulls from error recovery
+    }
+
+    private fun returnStatement(): Stmt {
+        val keyword = previous()
+        var value: Expr? = null
+        if (!check(TokenType.SEMICOLON)) {
+            value = expression()
+        }
+        consume(TokenType.SEMICOLON, "Expect ';' after return value.")
+        return Stmt.Return(keyword, value)
     }
 
     // block          → "{" declaration* "}" ;
@@ -245,7 +284,37 @@ class Parser(private val tokens: List<Token>) {
             val right = unary() // Recursive call for unary
             return Expr.Unary(operator, right)
         }
-        return primary()
+        return call()
+    }
+
+    // call           → primary ( "(" arguments? ")" )* ;
+    private fun call(): Expr {
+        var expr = primary()
+
+        while (true) {
+            if (match(TokenType.LEFT_PAREN)) {
+                expr = finishCall(expr)
+            } else {
+                break
+            }
+        }
+        return expr
+    }
+
+    private fun finishCall(callee: Expr): Expr {
+        val arguments = mutableListOf<Expr>()
+        if (!check(TokenType.RIGHT_PAREN)) {
+            do {
+                if (arguments.size >= 255) {
+                    error(peek(), "Can't have more than 255 arguments.")
+                    // Don't consume, let error recovery handle it or it might loop infinitely on
+                    // arguments
+                }
+                arguments.add(expression()) // Arguments are expressions
+            } while (match(TokenType.COMMA))
+        }
+        val paren = consume(TokenType.RIGHT_PAREN, "Expect ')' after arguments.")
+        return Expr.Call(callee, paren, arguments)
     }
 
     // primary        → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" | IDENTIFIER
