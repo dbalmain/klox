@@ -56,6 +56,15 @@ object Klox {
         val parser = Parser(tokens)
         val statements = parser.parse()
 
+        // val prettyPrinter = AstPrinter()
+        // println(prettyPrinter.print(statements))
+
+        // Stop if there was a syntax error.
+        if (hadError) return
+
+        val resolver = Resolver(interpreter)
+        resolver.resolve(statements)
+
         // Stop if there was a syntax error.
         if (hadError) return
 

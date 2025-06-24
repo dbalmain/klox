@@ -1,12 +1,103 @@
 package com.craftinginterpreters.klox
 
-// Assuming Expr.kt and Token.kt (with TokenType.kt) are in the same package
-// and TokenType has MINUS, STAR, etc.
+class AstPrinter : Expr.Visitor<String>, Stmt.Visitor<String> {
 
-class AstPrinter : Expr.Visitor<String> {
+    override fun visit(stmt: Stmt.Block): String {
+        val builder = StringBuilder()
+        builder.append("(block")
+        for (statement in stmt.statements) {
+            builder.append(" ").append(statement.accept(this))
+        }
+        builder.append(")")
+        return builder.toString()
+    }
+
+    override fun visit(stmt: Stmt.Class): String {
+        val builder = StringBuilder()
+        builder.append("(class ${stmt.name}")
+        for (method in stmt.methods) {
+            builder.append(" ").append(method.accept(this))
+        }
+        builder.append(")")
+        return builder.toString()
+    }
+
+    override fun visit(stmt: Stmt.Expression): String {
+        return parenthesize("expression", stmt.expression)
+    }
+
+    override fun visit(stmt: Stmt.Print): String {
+        return parenthesize("print", stmt.expression)
+    }
+
+    override fun visit(stmt: Stmt.Var): String {
+        if (stmt.initializer != null) {
+            return parenthesize("var ${stmt.name.lexeme}", stmt.initializer)
+        }
+        return "(var ${stmt.name.lexeme})"
+    }
+
+    override fun visit(stmt: Stmt.If): String {
+        val builder = StringBuilder()
+        builder.append("(if ").append(stmt.condition.accept(this))
+        builder.append(" ").append(stmt.thenBranch.accept(this))
+        if (stmt.elseBranch != null) {
+            builder.append(" ").append(stmt.elseBranch.accept(this))
+        }
+        builder.append(")")
+
+        return builder.toString()
+    }
+
+    override fun visit(stmt: Stmt.While): String {
+        val builder = StringBuilder()
+        builder.append("(while ")
+                .append(stmt.condition.accept(this))
+                .append(stmt.body.accept(this))
+                .append(")")
+
+        return builder.toString()
+    }
+
+    override fun visit(stmt: Stmt.Function): String {
+        val builder = StringBuilder()
+        builder.append("(fun ${stmt.name.lexeme} (")
+        for (param in stmt.params) {
+            builder.append(param.lexeme).append(" ")
+        }
+        if (stmt.params.isNotEmpty()) {
+            builder.setLength(builder.length - 1) // Remove trailing space
+        }
+        builder.append(") ")
+        for (bodyStmt in stmt.body) {
+            builder.append(bodyStmt.accept(this)).append(" ")
+        }
+        if (stmt.body.isNotEmpty()) {
+            builder.setLength(builder.length - 1) // Remove trailing space
+        }
+        builder.append(")")
+        return builder.toString()
+    }
+
+    override fun visit(stmt: Stmt.Return): String {
+        if (stmt.value != null) {
+            return parenthesize("return", stmt.value)
+        }
+        return "(return)"
+    }
 
     fun print(expr: Expr?): String {
         return expr?.accept(this) ?: "null_expr"
+    }
+
+    fun print(stmts: List<Stmt?>): String {
+        val builder = StringBuilder()
+        for (stmt in stmts) {
+            if (stmt != null) {
+                builder.append(stmt.accept(this)).append("\n")
+            }
+        }
+        return builder.toString()
     }
 
     override fun visit(expr: Expr.Assign): String {

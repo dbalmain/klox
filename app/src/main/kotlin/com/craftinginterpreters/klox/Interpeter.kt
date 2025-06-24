@@ -1,5 +1,6 @@
-// klox/app/src/main/kotlin/com/craftinginterpreters/klox/Interpreter.kt
 package com.craftinginterpreters.klox
+
+import java.util.IdentityHashMap
 
 // Custom exception for runtime errors
 class RuntimeError(val token: Token, override val message: String) : RuntimeException(message)
@@ -7,6 +8,7 @@ class RuntimeError(val token: Token, override val message: String) : RuntimeExce
 class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
     val globals = Environment()
     private var environment = globals
+    private val locals = IdentityHashMap<Expr, Int>()
     class Return(val value: Any?) : RuntimeException(null, null, false, false)
 
     init {
@@ -58,6 +60,16 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
         executeBlock(stmt.statements, Environment(environment)) // New environment for the block
     }
 
+    override fun visit(stmt: Stmt.Class) {
+        environment.define(stmt.name.lexeme, null)
+        val methods = mutableMapOf<String, LoxFunction>()
+        stmt.methods.forEach {
+            methods.put(it.name.lexeme, LoxFunction(it, environment, it.name.lexeme == "init"))
+        }
+        val klass = LoxClass(stmt.name.lexeme, methods)
+        environment.assign(stmt.name, klass)
+    }
+
     override fun visit(stmt: Stmt.Function) {
         val function = LoxFunction(stmt, environment) // Capture current environment as closure
         environment.define(stmt.name.lexeme, function)
@@ -80,8 +92,6 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
         }
     }
 
-    // override fun visit(stmt: Stmt.Class) { /* For Chapter 12 */ }
-    // override fun visit(stmt: Stmt.Return) { /* For Chapter 10 */ }
     override fun visit(stmt: Stmt.While) {
         while (isTruthy(evaluate(stmt.condition))) {
             execute(stmt.body)
@@ -103,8 +113,10 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
 
     // --- Expr.Visitor methods ---
     override fun visit(expr: Expr.Assign): Any? {
+        val distance = locals.get(expr)
         val value = evaluate(expr.value)
-        environment.assign(expr.name, value)
+        if (distance == null) return globals.assignAt(0, expr.name.lexeme, value)
+        else environment.assignAt(distance, expr.name.lexeme, value)
         return value
     }
 
@@ -182,9 +194,11 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
     }
 
     override fun visit(expr: Expr.Get): Any? {
-        // We'll implement this in a later chapter (Chapter 12)
-        Klox.runtimeError(RuntimeError(expr.name, "Properties not yet implemented."))
-        return null
+        val obj = evaluate(expr.objectExpr)
+        if (obj is LoxInstance) {
+            return obj.get(expr.name)
+        }
+        throw RuntimeError(expr.name, "Only instances have properties.")
     }
 
     override fun visit(expr: Expr.Grouping): Any? {
@@ -207,9 +221,14 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
     }
 
     override fun visit(expr: Expr.Set): Any? {
-        // We'll implement this in a later chapter (Chapter 12)
-        Klox.runtimeError(RuntimeError(expr.name, "Set properties not yet implemented."))
-        return null
+        val obj = evaluate(expr.objectExpr)
+        if (obj is LoxInstance) {
+            val value = evaluate(expr.value)
+            obj.set(expr.name, value)
+            return value
+        }
+
+        throw RuntimeError(expr.name, "Only instances have fields.")
     }
 
     override fun visit(expr: Expr.Super): Any? {
@@ -218,8 +237,7 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
     }
 
     override fun visit(expr: Expr.This): Any? {
-        Klox.runtimeError(RuntimeError(expr.keyword, "This expressions not yet implemented."))
-        return null
+        return lookupVariable(expr.keyword, expr)
     }
 
     override fun visit(expr: Expr.Unary): Any? {
@@ -236,7 +254,7 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
     }
 
     override fun visit(expr: Expr.Variable): Any? {
-        return environment.get(expr.name)
+        return lookupVariable(expr.name, expr)
     }
 
     // --- Helper methods for type checking and truthiness ---
@@ -247,7 +265,7 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
 
     private fun checkNumberOperands(operator: Token, left: Any?, right: Any?) {
         if (left is Double && right is Double) return
-        throw RuntimeError(operator, "Operands must be numbers.")
+        throw RuntimeError(operator, "Operands [${left}] and [${right}] must be numbers.")
     }
 
     private fun isTruthy(obj: Any?): Boolean {
@@ -273,5 +291,19 @@ class Interpreter : Expr.Visitor<Any?>, Stmt.Visitor<Any?> {
             return text
         }
         return obj.toString()
+    }
+
+    fun resolve(expr: Expr, depth: Int) {
+        // println(":::${expr} - ${depth}")
+        locals.put(expr, depth)
+    }
+
+    private fun lookupVariable(name: Token, expr: Expr): Any? {
+        val distance = locals.get(expr)
+        // println("Getting ${name.lexeme}:${distance}")
+        // println(environment)
+        // println(locals)
+        if (distance == null) return globals.getAt(0, name.lexeme)
+        else return environment.getAt(distance, name.lexeme)
     }
 }

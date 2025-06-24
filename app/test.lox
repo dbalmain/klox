@@ -1,3 +1,67 @@
+var a = "global";
+{
+  fun showA() {
+    print a;
+  }
+  showA(); // Should print "global"
+  var a = "block";
+  showA(); // Should STILL print "global" because showA captured 'a' before 'block a' was defined
+}
+
+{
+  var a = "outer";
+  {
+    // var a = a; // Error: Can't read local variable in its own initializer.
+    print a;
+  }
+}
+
+//{
+//  var a = 1;
+//  var a = 2; // Error: Already a variable with this name in this scope.
+//  print a;
+//}
+
+// return "nope"; // Error: Can't return from top-level code.
+
+var x = "global x";
+var y = "global y";
+{
+  var x = "outer x";
+  print x; // outer x
+  print y; // global y
+  {
+    var x = "inner x";
+    print x; // inner x
+    print y; // global y
+  }
+  print x; // outer x
+  print y; // global y
+}
+print x; // global x
+print y; // global y
+
+{
+    var x = 1;
+    while (x <= 1) {
+        {
+            print x;
+        }
+        x = x + 1;
+    }
+}
+for (var a = 1; a <= 1; a = a + 1) {
+    print a;
+}
+var sum = 0;
+{
+    var y = 1;
+    while (y <= 5) {
+        sum = sum + y;
+        y = y + 1;
+    }
+}
+
 var outer = "outer";
 for (var outer = "inner_loop"; false; ) {
     // this block is not entered
@@ -54,3 +118,11 @@ fun hh(n) {
   return middle;
 }
 print hh(5)(3);
+
+fun fib(n) {
+  if (n <= 1) return n;
+  return fib(n - 2) + fib(n - 1);
+}
+for (var i = 0; i < 20; i = i + 1) {
+  print fib(i);
+}

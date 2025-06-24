@@ -4,6 +4,7 @@ package com.craftinginterpreters.klox
 sealed class Stmt {
     interface Visitor<R> {
         fun visit(stmt: Block): R
+        fun visit(stmt: Class): R
         fun visit(stmt: Expression): R
         fun visit(stmt: Function): R
         fun visit(stmt: If): R
@@ -17,6 +18,13 @@ sealed class Stmt {
 
     data class Block(
         val statements: List<Stmt>
+    ) : Stmt() {
+        override fun <R> accept(visitor: Visitor<R>): R = visitor.visit(this)
+    }
+
+    data class Class(
+        val name: Token,
+        val methods: List<Stmt.Function>
     ) : Stmt() {
         override fun <R> accept(visitor: Visitor<R>): R = visitor.visit(this)
     }
