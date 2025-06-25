@@ -12,7 +12,8 @@ private enum class FunctionType {
 
 private enum class ClassType {
     NONE,
-    CLASS /*, SUBCLASS */
+    CLASS,
+    SUBCLASS
 }
 
 class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.Visitor<Unit> {
@@ -80,6 +81,15 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
         currentClass = ClassType.CLASS
         declare(stmt.name)
         define(stmt.name)
+        if (stmt.superclass != null) {
+            if (stmt.name.lexeme.equals(stmt.superclass.name.lexeme)) {
+                Klox.error(stmt.superclass.name, "A class can't inherit from itself.")
+            }
+            currentClass = ClassType.SUBCLASS
+            resolve(stmt.superclass)
+            beginScope()
+            scopes.peek()["super"] = true
+        }
         beginScope()
         scopes.peek()["this"] = true
         // if (stmt.superclass != null) resolve(stmt.superclass)
@@ -94,6 +104,9 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
             )
         }
         endScope()
+        if (stmt.superclass != null) {
+            endScope()
+        }
         currentClass = enclosingClass
     }
 
@@ -192,7 +205,7 @@ class Resolver(private val interpreter: Interpreter) : Expr.Visitor<Unit>, Stmt.
         resolve(expr.objectExpr)
     }
     override fun visit(expr: Expr.Super) {
-        /* For Chapter 13 */
+        resolveLocal(expr, expr.keyword)
     }
     override fun visit(expr: Expr.This) {
         if (currentClass == ClassType.NONE) {

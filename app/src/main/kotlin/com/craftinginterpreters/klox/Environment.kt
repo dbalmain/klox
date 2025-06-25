@@ -1,6 +1,6 @@
 package com.craftinginterpreters.klox
 
-class Environment(private val enclosing: Environment? = null) {
+class Environment(val enclosing: Environment? = null) {
     private val values = mutableMapOf<String, Any?>()
 
     fun define(name: String, value: Any?) {
@@ -14,7 +14,7 @@ class Environment(private val enclosing: Environment? = null) {
         }
         @Suppress("DEPRECATION") if (enclosing != null) return enclosing.get(name)
 
-        throw RuntimeError(name, "Undefined variable '${name.lexeme}'.")
+        throw RuntimeError(name, "Getting undefined variable '${name.lexeme}'.")
     }
 
     fun assign(name: Token, value: Any?) {
@@ -26,7 +26,7 @@ class Environment(private val enclosing: Environment? = null) {
             enclosing.assign(name, value)
             return
         }
-        throw RuntimeError(name, "Undefined variable '${name.lexeme}'.")
+        throw RuntimeError(name, "Setting undefined variable '${name.lexeme}'.")
     }
 
     private fun ancestor(distance: Int): Environment {
